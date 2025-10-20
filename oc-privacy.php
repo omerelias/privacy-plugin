@@ -155,6 +155,25 @@ class CookieConsentBar {
             'cookie-consent-bar',
             'ccb_style_section'
         );
+
+
+        // צבע קישור מדיניות פרטיות
+        add_settings_field(
+            'ccb_privacy_link_color',
+            __('צבע קישור מדיניות פרטיות', 'cookie-consent-bar'),
+            array($this, 'privacy_link_color_field_callback'),
+            'cookie-consent-bar',
+            'ccb_style_section'
+        );
+
+        // Border radius
+        add_settings_field(
+            'ccb_border_radius',
+            __('Border Radius (פיקסלים)', 'cookie-consent-bar'),
+            array($this, 'border_radius_field_callback'),
+            'cookie-consent-bar',
+            'ccb_style_section'
+        );
     }
 
     /**
@@ -162,6 +181,21 @@ class CookieConsentBar {
      */
     private function get_option($key, $default = '') {
         return isset($this->options[$key]) ? $this->options[$key] : $default;
+    }
+
+    /**
+     * החלפת {url} בקישור למדיניות פרטיות
+     */
+    private function process_privacy_link($text) {
+        $final_url = get_privacy_policy_url();
+        
+        if ($final_url && strpos($text, '{url}') !== false) {
+            $privacy_link_color = $this->get_option('privacy_link_color', '#144456');
+            $link_html = '<a href="' . esc_url($final_url) . '" style="color:' . esc_attr($privacy_link_color) . '; text-decoration: underline;">מדיניות הפרטיות</a>';
+            $text = str_replace('{url}', $link_html, $text);
+        }
+        
+        return $text;
     }
 
     /**
@@ -282,6 +316,55 @@ class CookieConsentBar {
         <?php
     }
 
+
+    /**
+     * שדה צבע קישור מדיניות פרטיות
+     */
+    public function privacy_link_color_field_callback() {
+        $value = $this->get_option('privacy_link_color', '#144456');
+        ?>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="color" id="ccb_privacy_link_color_picker" value="<?php echo esc_attr($value); ?>" />
+            <input type="text"
+                   id="ccb_privacy_link_color"
+                   name="<?php echo $this->option_name; ?>[privacy_link_color]"
+                   value="<?php echo esc_attr($value); ?>"
+                   class="regular-text color-field"
+                   placeholder="#144456"
+                   pattern="^#[0-9A-Fa-f]{6}$" />
+            <span class="description">הזן קוד צבע HEX</span>
+        </div>
+        <?php
+    }
+
+    /**
+     * שדה Border Radius
+     */
+    public function border_radius_field_callback() {
+        $value = $this->get_option('border_radius', '12');
+        ?>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <input type="range" 
+                   id="ccb_border_radius_slider"
+                   name="<?php echo $this->option_name; ?>[border_radius]" 
+                   value="<?php echo esc_attr($value); ?>" 
+                   min="0" 
+                   max="50" 
+                   step="1" 
+                   style="flex: 1;" />
+            <input type="number" 
+                   id="ccb_border_radius_input"
+                   value="<?php echo esc_attr($value); ?>" 
+                   min="0" 
+                   max="50" 
+                   step="1" 
+                   style="width: 80px;" />
+            <span>px</span>
+        </div>
+        <p class="description">גרור את הסליידר או הזן ערך ישירות (0-50 פיקסלים)</p>
+        <?php
+    }
+
     /**
      * ניקוי וולידציה של ההגדרות
      */
@@ -314,6 +397,15 @@ class CookieConsentBar {
 
         if (isset($input['button_text_color'])) {
             $sanitized['button_text_color'] = sanitize_hex_color($input['button_text_color']);
+        }
+
+
+        if (isset($input['privacy_link_color'])) {
+            $sanitized['privacy_link_color'] = sanitize_hex_color($input['privacy_link_color']);
+        }
+
+        if (isset($input['border_radius'])) {
+            $sanitized['border_radius'] = absint($input['border_radius']);
         }
 
         return $sanitized;
@@ -349,7 +441,7 @@ class CookieConsentBar {
                     color: <?php echo esc_attr($this->get_option('text_color', '#333333')); ?>;
                     text-align: right;
                     padding: 20px;
-                    border-radius: 12px;
+                    border-radius: <?php echo esc_attr($this->get_option('border_radius', '12')); ?>px;
                     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                     font-size: 15px;
                     direction: rtl;
@@ -359,10 +451,7 @@ class CookieConsentBar {
                         <div style="line-height:1.7;">
                             <strong id="ccb-preview-title"><?php echo esc_html($this->get_option('title', '🍪 אוהבים עוגיות? גם אנחנו!')); ?></strong>
                             <p style="margin: 5px 0 0 0;">
-                                <span id="ccb-preview-text"><?php echo esc_html($this->get_option('text', 'אנחנו משתמשים בעוגיות (cookies) לשיפור חוויית הגלישה שלך, הצגת הצעות מותאמות ועוד.')); ?></span>
-                                <?php if (get_privacy_policy_url()): ?>
-                                    עיין ב<a href="#" style="color:#144456; text-decoration: underline;">מדיניות הפרטיות</a> שלנו.
-                                <?php endif; ?>
+                                <span id="ccb-preview-text"><?php echo $this->process_privacy_link($this->get_option('text', 'אנחנו משתמשים בעוגיות (cookies) לשיפור חוויית הגלישה שלך, הצגת הצעות מותאמות ועוד.')); ?></span>
                             </p>
                         </div>
                         <button id="ccb-preview-button" style="
@@ -411,6 +500,26 @@ class CookieConsentBar {
                     syncColorFields('ccb_text_color_picker', 'ccb_text_color');
                     syncColorFields('ccb_button_bg_color_picker', 'ccb_button_bg_color');
                     syncColorFields('ccb_button_text_color_picker', 'ccb_button_text_color');
+                    syncColorFields('ccb_privacy_link_color_picker', 'ccb_privacy_link_color');
+
+                    // סנכרון בין סליידר לשדה מספר
+                    function syncSliderFields(sliderId, inputId) {
+                        var slider = $('#' + sliderId);
+                        var input = $('#' + inputId);
+
+                        slider.on('input change', function() {
+                            input.val(this.value);
+                        });
+
+                        input.on('input change', function() {
+                            var value = parseInt(this.value);
+                            if (!isNaN(value) && value >= 0 && value <= 50) {
+                                slider.val(value);
+                            }
+                        });
+                    }
+
+                    syncSliderFields('ccb_border_radius_slider', 'ccb_border_radius_input');
 
                     // עדכון תצוגה מקדימה בזמן אמת
                     function updatePreview() {
@@ -419,7 +528,16 @@ class CookieConsentBar {
 
                         // עדכון טקסטים
                         $('#ccb-preview-title').text($('input[name="ccb_settings[title]"]').val());
-                        $('#ccb-preview-text').text($('textarea[name="ccb_settings[text]"]').val());
+                        var textContent = $('textarea[name="ccb_settings[text]"]').val();
+                        var privacyLinkColor = $('#ccb_privacy_link_color').val();
+                        
+                        // החלפת {url} בקישור
+                        if (textContent.indexOf('{url}') !== -1) {
+                            var linkHtml = '<a href="#" style="color:' + privacyLinkColor + '; text-decoration: underline;">מדיניות הפרטיות</a>';
+                            textContent = textContent.replace('{url}', linkHtml);
+                        }
+                        
+                        $('#ccb-preview-text').html(textContent);
                         previewButton.text($('input[name="ccb_settings[button_text]"]').val());
 
                         // עדכון צבעים
@@ -427,6 +545,8 @@ class CookieConsentBar {
                         var textColor = $('#ccb_text_color').val();
                         var buttonBgColor = $('#ccb_button_bg_color').val();
                         var buttonTextColor = $('#ccb_button_text_color').val();
+                        var privacyLinkColor = $('#ccb_privacy_link_color').val();
+                        var borderRadius = $('#ccb_border_radius_slider').val();
 
                         if (isValidHex(bgColor)) {
                             preview.css('background-color', bgColor);
@@ -440,11 +560,15 @@ class CookieConsentBar {
                         if (isValidHex(buttonTextColor)) {
                             previewButton.css('color', buttonTextColor);
                         }
+                        
+                        // עדכון border radius
+                        preview.css('border-radius', borderRadius + 'px');
                     }
 
                     // האזנה לשינויים בכל השדות
                     $('input[name="ccb_settings[title]"], textarea[name="ccb_settings[text]"], input[name="ccb_settings[button_text]"]').on('input', updatePreview);
                     $('.color-field').on('input change', updatePreview);
+                    $('#ccb_border_radius_slider, #ccb_border_radius_input').on('input change', updatePreview);
 
                     // אנימציה לכפתור בתצוגה המקדימה
                     $('#ccb-preview-button').on('click', function(e) {
@@ -469,6 +593,82 @@ class CookieConsentBar {
                 }
                 #ccb-preview-button {
                     transition: transform 0.1s ease;
+                }
+                input[type="range"] {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    background: transparent;
+                    cursor: pointer;
+                }
+                input[type="range"]::-webkit-slider-track {
+                    background: #ddd;
+                    height: 6px;
+                    border-radius: 3px;
+                }
+                input[type="range"]::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    background: #ff8a00;
+                    height: 20px;
+                    width: 20px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                }
+                input[type="range"]::-moz-range-track {
+                    background: #ddd;
+                    height: 6px;
+                    border-radius: 3px;
+                    border: none;
+                }
+                input[type="range"]::-moz-range-thumb {
+                    background: #ff8a00;
+                    height: 20px;
+                    width: 20px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    border: none;
+                }
+                input[type="range"] {
+                    width: 100%;
+                    height: 6px;
+                    border-radius: 3px;
+                    background: #ddd;
+                    outline: none;
+                    -webkit-appearance: none;
+                    margin: 10px 0;
+                }
+                input[type="range"]:focus {
+                    outline: none;
+                }
+                input[type="range"]::-webkit-slider-track {
+                    background: #ddd;
+                    height: 6px;
+                    border-radius: 3px;
+                    border: none;
+                }
+                input[type="range"]::-webkit-slider-thumb {
+                    -webkit-appearance: none;
+                    appearance: none;
+                    background: #ff8a00;
+                    height: 20px;
+                    width: 20px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    margin-top: -7px;
+                }
+                input[type="range"]::-moz-range-track {
+                    background: #ddd;
+                    height: 6px;
+                    border-radius: 3px;
+                    border: none;
+                }
+                input[type="range"]::-moz-range-thumb {
+                    background: #ff8a00;
+                    height: 20px;
+                    width: 20px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    border: none;
                 }
             </style>
 
@@ -512,7 +712,7 @@ class CookieConsentBar {
                 color: <?php echo esc_attr($this->get_option('text_color', '#333333')); ?>;
                 text-align: right;
                 padding: 20px;
-                border-radius: 12px;
+                border-radius: <?php echo esc_attr($this->get_option('border_radius', '12')); ?>px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.15);
                 font-size: 15px;
                 z-index: 99999;
@@ -552,7 +752,7 @@ class CookieConsentBar {
             }
 
             #cookie-consent-bar .ccb-text a {
-                color: #144456;
+                color: <?php echo esc_attr($this->get_option('privacy_link_color', '#144456')); ?>;
                 text-decoration: underline;
             }
 
@@ -602,10 +802,7 @@ class CookieConsentBar {
                 <div class="ccb-text">
                     <strong><?php echo esc_html($this->get_option('title', '🍪 אוהבים עוגיות? גם אנחנו!')); ?></strong>
                     <p>
-                        <?php echo esc_html($this->get_option('text', 'אנחנו משתמשים בעוגיות (cookies) לשיפור חוויית הגלישה שלך, הצגת הצעות מותאמות ועוד.')); ?>
-                        <?php if (get_privacy_policy_url()): ?>
-                            עיין ב<a href="<?php echo esc_url(get_privacy_policy_url()); ?>">מדיניות הפרטיות</a> שלנו.
-                        <?php endif; ?>
+                        <?php echo $this->process_privacy_link($this->get_option('text', 'אנחנו משתמשים בעוגיות (cookies) לשיפור חוויית הגלישה שלך, הצגת הצעות מותאמות ועוד.')); ?>
                     </p>
                 </div>
                 <button id="cookie-accept-btn" aria-label="אשר שימוש בעוגיות">
@@ -669,7 +866,6 @@ class CookieConsentBar {
                             bar.style.right = '20px';
                             bar.style.left = 'auto';
                             bar.style.bottom = '20px';
-                            bar.style.borderRadius = '12px';
                             bar.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
                         }
                     }
@@ -686,7 +882,7 @@ class CookieConsentBar {
                         // אנימציה של סגירה
                         bar.style.animation = 'slideDown 0.3s ease-out forwards';
 
-                        setTimeout(function() {
+                        setTimeout(function() { 
                             bar.style.display = 'none';
                         }, 300);
 
@@ -710,7 +906,7 @@ class CookieConsentBar {
                 }
                 to {
                     transform: translateY(100px);
-                    opacity: 0;
+                    opacity: 0; 
                 }
             }
         </style>
@@ -735,7 +931,9 @@ function ccb_activate() {
         'bg_color' => '#ffffff',
         'text_color' => '#333333',
         'button_bg_color' => '#ff8a00',
-        'button_text_color' => '#ffffff'
+        'button_text_color' => '#ffffff',
+        'privacy_link_color' => '#144456',
+        'border_radius' => '12'
     );
 
     if (!get_option('ccb_settings')) {
