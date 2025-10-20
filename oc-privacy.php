@@ -351,7 +351,7 @@ class CookieConsentBar {
                    min="0" 
                    max="50" 
                    step="1" 
-                   style="flex: 1;" />
+                   style="width: 200px;" />
             <input type="number" 
                    id="ccb_border_radius_input"
                    value="<?php echo esc_attr($value); ?>" 
@@ -883,7 +883,7 @@ class CookieConsentBar {
                         bar.style.animation = 'slideDown 0.3s ease-out forwards';
 
                         setTimeout(function() { 
-                            bar.style.display = 'none';
+                            bar.style.display = 'none'; 
                         }, 300);
 
                         // שליחת אירוע מותאם אישית
